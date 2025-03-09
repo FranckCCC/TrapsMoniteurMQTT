@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Paramètres</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<h2><img src="icones/param-devices.png" onclick="pingAllDevices()" alt="Rafraichir TRAPS"
+    style="vertical-align: middle;">
+PARAMETRAGE TRAPS MONITEUR V1.3.4</h2>
+<body>
+    <form id="settingsForm">
+        <button type="button" id="saveSettings">Enregistrer les paramètres</button>
+        <!-- Cadre pour les adresses du serveur et le port -->
+        <div class="settings-container">
+            <h3 class="settings-title">Paramètres du Serveur - Broker MQTT</h3>
+            <div class="server-settings">
+                <div class="form-input">
+                    <label for="serverAddress">Adresse du broker:</label>
+                    <input type="text" id="serverAddress" name="serverAddress">
+                </div>
+                <div class="form-input">
+                    <label for="serverPort">Port (ws):</label>
+                    <input type="number" id="serverPort" name="serverPort">
+                </div>
+            </div>
+        </div>
+
+        <!-- Cadre pour les boutons d'ajout -->
+        <div class="addition-container">
+            <h3 class="settings-title">Ajout des TRAPS, APs et PC/Serveurs à contrôler</h3>
+            <div id="devices">
+                <!-- Les champs pour chaque dispositif seront ajoutés ici -->
+                <div id="progress-container" style="display: none;">
+                    <label for="update-progress">Progression de la mise à jour :</label>
+                    <progress id="update-progress" value="0" max="100"></progress>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="button" onclick="addDeviceFields()">Ajouter un TRAPS</button>
+            </div>
+            <div id="aps">
+                <!-- Les champs pour chaque APS seront ajoutés ici -->
+            </div>
+            <div class="button-group-setting">
+                <button type="button" id="addApButton">Ajouter une AP</button>
+            </div>
+            <div id="pcs">
+                <!-- Les champs pour chaque PC seront ajoutés ici dynamiquement -->
+            </div>
+            <div class="button-group">
+                <button type="button" id="addPcButton">Ajouter un PC</button>
+            </div>
+        </div>
+
+        <!-- Cadre pour les mises à jour -->
+        <div class="update-container">
+            <h3 class="settings-title">Mise à jour de l'application sur TRAPS</h3>
+            <div class="form-group">
+                <div class="form-input">
+                    <label for="apkBaseUrl">URL de mise à jour:</label>
+                    <input type="text" id="apkBaseUrl" name="apkBaseUrl">
+                </div>
+                <div class="form-input">
+                    <label for="lastVersion">Dernière version:</label>
+                    <input type="text" id="lastVersion" name="lastVersion">
+                </div>
+
+                <div class="form-input">
+                    <!-- Upload File -->
+                    <label for="apkFile">Fichier APK:</label>
+                    <input type="file" id="apkFile" name="apkFile">
+                </div>
+
+                <div class="form-input">
+                    <button type="button" id="uploadApkBtn">Envoyer</button>
+                </div>
+
+                
+
+            </div>
+        </div>
+        <button type="button" id="saveSettings2">Enregistrer les paramètres</button>
+        <button type="button" id="sendSettingsServer">Sauvegarder les paramètres sur le serveur</button>
+        <button type="button" id="updateFromServer">Mettre à jour les paramètres depuis le serveur</button>
+        <button type="button" id="deleteFileBtn">Supprimer les données enregistrés</button>
+    </form>
+    <script src="js/mqtt.min.js"></script>
+    <script src="js/functions_utils.js"></script>
+
+    <script>
+        const serverAddressInput = document.getElementById('serverAddress');
+        const serverPortInput = document.getElementById('serverPort');
+        const apkBaseUrlInput = document.getElementById('apkBaseUrl');
+        const lastVersionInput = document.getElementById('lastVersion');
+        const saveSettingsBtn = document.getElementById('saveSettings');
+        const saveSettings2Btn = document.getElementById('saveSettings2');
+        const uploadApkBtn = document.getElementById('uploadApkBtn');
+        const sendSettingsServerBtn = document.getElementById('sendSettingsServer');
+        const updateFromServerBtn = document.getElementById('updateFromServer');
+
+        // Ajouter un événement pour sauvegarder les paramètres lorsqu'ils sont modifiés
+        serverAddressInput.addEventListener('input', () => {
+            saveSettings(false)
+        });
+        serverPortInput.addEventListener('input', () => {
+            saveSettings(false)
+        });
+        apkBaseUrlInput.addEventListener('input', () => {
+            saveSettings(false)
+        });
+        lastVersionInput.addEventListener('input', () => {
+            saveSettings(false)
+        });
+
+        saveSettingsBtn.addEventListener('click', () => {
+            saveSettings();
+        });
+
+        saveSettings2Btn.addEventListener('click', () => {
+            saveSettings();
+        });
+
+        uploadApkBtn.addEventListener('click', () => {
+            uploadApk();
+        });
+
+        sendSettingsServerBtn.addEventListener('click', () => {
+            saveConfigToServer();
+        });
+
+        updateFromServerBtn.addEventListener('click', () => {
+            updateLocalStorageFromServer();
+        });
+
+        document.getElementById('deleteFileBtn').addEventListener('click', function() {
+            if (confirm("Êtes-vous sûr de vouloir supprimer toutes les données enregistrées dans batteryData.json ?")) {
+                fetch('PHP/deleteFile.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ filename: 'batteryData.json' })
+                })
+                .then(response => response.text())
+                .then(data => {
+                    alert("Fichier supprimé avec succès.");
+                    console.log(data);
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert("Erreur lors de la suppression du fichier.");
+                });
+            }
+        });
+
+
+        // Fonction pour envoyer un fichier APK
+        function uploadApk() {
+            console.log('Uploading APKs');
+            const file_data = document.getElementById('apkFile').files[0];
+
+            if (!file_data) return;
+            // Si il n'a pas de fichier
+            const apkBaseUrl = document.getElementById('apkBaseUrl').value;
+            const version = document.getElementById('lastVersion').value;
+
+            const fileName = `TrapsMonitor-V${version}.apk`;
+            console.log(fileName)
+
+            const form_data = new FormData();
+            form_data.append('file', file_data);
+            // form_data.append('apkBaseUrl', apkBaseUrl);
+            form_data.append('fileName', fileName);
+            form_data.append('overwrite', "true");
+
+            function updateDevice(deviceName, apkURL) {
+                const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+
+                // Affiche le conteneur de progression
+                document.getElementById('progress-container').style.display = 'block';
+                const progressBar = document.getElementById('update-progress');
+                progressBar.value = 0;
+
+                return new Promise((resolve, reject) => {
+                    try {
+                        let progressValue = 0;
+                        const progressInterval = setInterval(() => {
+                            progressValue += 10; // Simuler la progression
+                            progressBar.value = progressValue;
+                            if (progressValue >= 100) {
+                                clearInterval(progressInterval);
+                                document.getElementById('progress-container').style.display = 'none'; // Cacher la barre de progression une fois terminée
+                                resolve();
+                            }
+                        }, 1000); // Simuler une mise à jour toutes les secondes
+
+                        client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: 'updateApp', url: apkURL }));
+                        client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: 'update', url: apkURL }));
+                    } catch (error) {
+                        console.error(error);
+                        reject(error);
+                    }
+                });
+            }
+
+            // redirect to php
+
+
+            fetch('PHP/uploadApk.php', {
+                method: 'POST',
+                body: form_data
+            }).then(response => response.text())
+                .then(data => {
+                    console.log(data);
+                    // localStorage.setItem('updateApkUrl', getApkUrl());
+                })
+                .catch(error => console.error(error));
+        }
+
+        // Fonction pour sauvegarder les paramètres
+        function saveSettings(redirect = true) {
+
+            // Sauvegarde des paramètres serveur et APK
+            const serverAddress = document.getElementById('serverAddress').value;
+            const serverPort = document.getElementById('serverPort').value;
+            const apkBaseUrl = document.getElementById('apkBaseUrl').value;
+            const lastVersion = document.getElementById('lastVersion').value;
+
+            localStorage.setItem('mqttServerAddress', serverAddress);
+            localStorage.setItem('mqttServerPort', serverPort);
+            localStorage.setItem('apkBaseUrl', apkBaseUrl);
+            localStorage.setItem('lastVersion', lastVersion);
+          
+
+            const devices = [];
+            document.querySelectorAll('.device-element').forEach(deviceElement => {
+                console.log(deviceElement);
+            const name = deviceElement.querySelector('.device-name')?.value?.trim();
+            const color = deviceElement.querySelector('.device-color')?.value?.trim();// Assurez-vous que cette classe est correcte
+
+                    if (name) {
+                    // Vérifiez si l'objet avec le même nom et Color existe déjà dans le tableau
+                    if (!devices.some(devices => devices.name === name && devices.color === color)) {
+                        devices.push({ name, color });
+                    }
+                }
+                
+                });
+         
+              localStorage.setItem('mqttDevices', JSON.stringify(devices));
+
+        
+            // Nouveau: Sauvegarde des adresses IP et noms des PCs
+            const pcs = [];
+            document.querySelectorAll('.pcs-element').forEach((pcElement) => {
+                const name = pcElement.querySelector('.pc-name')?.value?.trim();
+                const ip = pcElement.querySelector('.pc-ip')?.value?.trim();
+                if (name && ip) {
+                    // Vérifiez si l'objet avec le même nom et IP existe déjà dans le tableau
+                    if (!pcs.some(pc => pc.name === name && pc.ip === ip)) {
+                        pcs.push({ name, ip });
+                    }
+                }
+            });
+            localStorage.setItem('pcs', JSON.stringify(pcs));
+
+            // Sauvegarde des noms, adresses IP et MAC des APs sans doublons
+            const aps = new Set();
+            document.querySelectorAll('.ap-element').forEach(apElement => {
+                const name = apElement.querySelector('.ap-name')?.value?.trim();
+                const ip = apElement.querySelector('.ap-ip')?.value?.trim();
+                const mac = apElement.querySelector('.ap-mac')?.value?.trim();
+                if (name && ip && mac) {
+                    const apString = `${name}-${ip}-${mac}`; // Créez une chaîne unique pour chaque AP
+                    aps.add(apString);
+                }
+            });
+            localStorage.setItem('aps', JSON.stringify(Array.from(aps).map(ap => {
+                const [name, ip, mac] = ap.split('-'); // Découpez la chaîne pour obtenir les propriétés
+                return { name, ip, mac };
+            })));
+
+
+            // Rediriger vers la page d'accueil
+            if (redirect) {
+                window.location.href = 'index.html'; // Pour commencer le scan immédiatement
+            }
+        }
+
+
+        function loadSettings() {
+            serverAddressInput.value = localStorage.getItem('mqttServerAddress') || 'localhost';
+            serverPortInput.value = localStorage.getItem('mqttServerPort') || 1884;
+            apkBaseUrlInput.value = localStorage.getItem('apkBaseUrl') || 'http://192.168.1.104/MQTT/apks';
+            lastVersionInput.value = localStorage.getItem('lastVersion') || '1.5.0';
+
+
+
+            // Charger et afficher les informations des APs
+            const storedAps = JSON.parse(localStorage.getItem('aps') || '[]');
+            const apsContainer = document.getElementById('aps');
+            apsContainer.innerHTML = ''; // Efface les champs existants
+            storedAps.forEach(ap => {
+                addApField(ap);
+            });
+
+            
+        }
+
+        function saveConfigToServer(){
+            
+            const data = {
+                serverAddress: localStorage.getItem('mqttServerAddress') || 'localhost',
+                serverPort: localStorage.getItem('mqttServerPort') || 1884,
+                apkBaseUrl: localStorage.getItem('apkBaseUrl') || 'http://192.168.0.84/MQTT/apks',
+                lastVersion: localStorage.getItem('lastVersion') || '1.4.17',
+                devices: JSON.parse(localStorage.getItem('mqttDevices')) || [],
+                aps: JSON.parse(localStorage.getItem('aps')) || [],
+                pcs: JSON.parse(localStorage.getItem('pcs')) || []
+
+
+            }
+
+            console.log(data)
+            fetch('PHP/saveConfig.php', {
+                method: 'POST',
+                body: JSON.stringify(data),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => response.text())
+                .then(data => console.log(data))
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function updateLocalStorageFromServer(){
+            fetch('PHP/getConfig.php')
+                .then(response => response.json())
+                .then(data => {
+                    const config = data.config;
+                    console.log("données de conf", config);
+                    localStorage.setItem('mqttServerAddress', config.serverAddress);
+                    localStorage.setItem('mqttServerPort', config.serverPort);
+                    localStorage.setItem('apkBaseUrl', config.apkBaseUrl);
+                    localStorage.setItem('lastVersion', config.lastVersion);
+                    localStorage.setItem('mqttDevices', JSON.stringify(config.devices));
+                    localStorage.setItem('aps', JSON.stringify(config.aps));
+                    localStorage.setItem('pcs', JSON.stringify(config.pcs));
+                    loadSettings();
+                    loadDevicesFields();
+                    loadPcsFields();
+                })
+                .catch((error) => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function getApkUrl() {
+            return localStorage.getItem('apkBaseUrl') + '/TrapsMonitor-V' + localStorage.getItem('lastVersion') + '.apk';
+        }
+
+        function generateId() {
+            return Math.random().toString(36).substr(2, 9);
+        }
+
+    
+        // Fonction pour mettre à jour l'application sur un dispositif
+        function updateDevice(deviceName, apkURL) {
+
+            const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+
+            return new Promise((resolve, reject) => {
+                try {
+                    client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: 'updateApp', url: apkURL }));
+                    client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: 'update', url: apkURL }));
+                    resolve();
+                } catch (error) {
+                    console.error(error);
+                    reject(error);
+                }
+            });
+
+        }
+
+        function sendCommand(deviceName, command) {
+            const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+
+            return new Promise((resolve, reject) => {
+                try {
+                    client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: command }));
+                    resolve();
+                } catch (error) {
+                    reject(error);
+                }
+                // client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: command }));
+                // resolve();
+            });
+        }
+
+        const commandsResponsesTopics = {
+            "ping": "ping/",
+            "wifiInfo": "wifi/",
+            "batteryStatus": "charging/",
+            "getVersion": "version/",
+            "version": "version/",
+            "updateApp": "update/"
+        }
+
+        // Fonction pour envoyer une commande et attendre la réponse
+        function sendCommandAndWaitForResponse(deviceName, command) {
+            const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+            const responseTopic = commandsResponsesTopics[command] + deviceName;
+            console.log(client)
+            console.log(responseTopic)
+            console.log(deviceName, command)
+
+            return new Promise((resolve, reject) => {
+                client.subscribe(responseTopic, (err) => {
+                    if (err) {
+                        console.error(err);
+                        reject(err);
+                    } else {
+                        client.publish(`cmd/${deviceName}`, JSON.stringify({
+                            cmd: command
+                        }));
+                    }
+                });
+
+                client.on('message', (topic, message) => {
+                    if (topic === responseTopic && !message.toString().includes('received')) {
+                        resolve(message.toString());
+                    }
+                });
+
+                setTimeout(() => {
+                    // reject('Timeout');
+                    resolve('Timeout');
+                }, 1000);
+            });
+        };
+
+        // Fonction pour mettre à jour l'application sur un TRAPS
+        async function clickInfoBtn(deviceId) {
+            const deviceDiv = document.getElementById(deviceId);
+            const deviceName = deviceDiv.querySelector('.deviceName')?.value;
+            if (deviceName === '') return;
+
+            let versionRes = await sendCommandAndWaitForResponse(deviceName, 'getVersion');
+            if (versionRes === 'Timeout') {
+                versionRes = await sendCommandAndWaitForResponse(deviceName, 'version');
+            }
+
+            const lastVersion = document.getElementById('lastVersion').value;
+            const currentVersion = versionRes === 'Timeout' ? 'Pas en ligne' : JSON.parse(versionRes).versionName;
+            const infoSpan = deviceDiv.querySelector('#info-span');
+
+            // Gérer l'affichage en fonction de l'état de la connexion
+            if (currentVersion === 'Pas en ligne') {
+                // Afficher en rouge et sans "Version actuelle :"
+                infoSpan.innerHTML = currentVersion;
+                infoSpan.style.color = 'red';
+            } else {
+                // Afficher avec "Version actuelle :" et enlever la couleur rouge si elle était appliquée
+                infoSpan.innerHTML = `Version actuelle : V${currentVersion}`;
+                infoSpan.style.color = ''; // Remet la couleur par défaut
+            }
+
+            const updateBtn = deviceDiv.querySelector('.update-btn');
+            if (updateBtn) {
+                deviceDiv.removeChild(updateBtn); // Retire le bouton existant dans tous les cas
+            }
+
+            if (currentVersion !== 'Pas en ligne' && currentVersion !== lastVersion) {
+                // Si le TRAPS est en ligne et pas à jour, alors créer et afficher le bouton de mise à jour
+                const newUpdateBtn = document.createElement('button');
+                newUpdateBtn.innerHTML = `Mettre à jour à V${lastVersion}`;
+                newUpdateBtn.className = 'update-btn';
+                newUpdateBtn.onclick = function () {
+                    const apkURL = getApkUrl();
+                    updateDevice(deviceName, apkURL);
+                };
+                deviceDiv.appendChild(newUpdateBtn);
+            }
+        }
+
+
+
+        // Charger les dispositifs
+        function loadDevicesFields() {
+            // Get the container where device fields will be added.
+            const devicesDiv = document.getElementById('devices');
+            // Clear out any existing fields before adding new ones to avoid duplication.
+            devicesDiv.innerHTML = '';
+
+            // Retrieve the list of device names from localStorage.
+            const devices = JSON.parse(localStorage.getItem('mqttDevices')) || [];
+            //console.log(mqttDevices);
+
+            const unknownDevices = JSON.parse(localStorage.getItem('unknownDevices')) || [];
+
+            console.log(unknownDevices);
+
+            // const unknownDevicesList = document.getElementById('unknownDevicesList');
+
+            if (unknownDevices.length > 0) {
+                // Create a container for unknown devices.
+
+                const unknownDevicesDiv = document.createElement('div');
+                unknownDevicesDiv.className = 'device-element';
+                unknownDevicesDiv.id = generateId();
+
+                const unknownDevicesLabel = document.createElement('label');
+                unknownDevicesLabel.textContent = 'Dispositifs inconnus: ';
+                const unknownDevicesSpan = document.createElement('span');
+                unknownDevicesSpan.id = 'unknown-devices-span';
+                unknownDevicesSpan.innerHTML = unknownDevices.join(', ');
+                // Bouton pour les ajouter à la liste des dispositifs
+
+                const addUnknownDevicesBtn = document.createElement('button');
+                addUnknownDevicesBtn.innerHTML = 'Ajouter à la liste des dispositifs';
+
+               /* const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.defaultValue = '#FFFFFF';  // Couleur par défaut
+                colorInput.className = 'device-color';
+                colorInput.value = deviceName.color;*/
+
+                addUnknownDevicesBtn.onclick = function (event) {
+                    event.preventDefault()
+                    const unknownDevicesSpan = document.getElementById('unknown-devices-span');
+                    const unknownDevices = unknownDevicesSpan.innerHTML.split(', ');
+                    console.log("unknownDevices", unknownDevices)
+                    const devices = JSON.parse(localStorage.getItem('mqttDevices')) || [];
+
+                    unknownDevices.forEach(name => {
+                        if (!devices.includes(name)) {
+                            
+                            const color = getRandomColor();// Assurez-vous que cette classe est correcte
+                            console.log("color", color)
+                            // devices.push({ deviceName, color });
+                               devices.push({name: name, color});
+                        }
+                    });
+                    localStorage.setItem('mqttDevices', JSON.stringify(devices));
+                    localStorage.setItem('unknownDevices', JSON.stringify([]));
+                    loadDevicesFields();
+                };
+            
+
+                unknownDevicesDiv.appendChild(unknownDevicesLabel);
+                unknownDevicesDiv.appendChild(unknownDevicesSpan);
+                //deviceDiv.appendChild(colorInput);
+                devicesDiv.appendChild(unknownDevicesDiv);
+                
+                devicesDiv.appendChild(addUnknownDevicesBtn);
+                devicesDiv.appendChild(document.createElement('br'));
+            }
+
+
+            // Loop through each device name and create corresponding fields.
+            devices.forEach(deviceName => {
+                // Create a container for each device.
+                const deviceDiv = document.createElement('div');
+                deviceDiv.className = 'device-element';
+                deviceDiv.id = generateId();
+
+                // Create the input field for the device name.
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'device-name';
+                input.name = 'deviceName[]';
+                input.value = deviceName.name;
+                const infoIcon = document.createElement('img');
+                infoIcon.src = 'icones/info-icon.png';
+                infoIcon.alt = 'info';
+                infoIcon.className = 'icon';
+                infoIcon.onclick = function () {
+                    clickInfoBtn(deviceDiv.id);
+                };
+
+
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.defaultValue = '#FFFFFF';  // Couleur par défaut
+                colorInput.className = 'device-color';
+                colorInput.value = deviceName.color;
+
+
+                // Create a span to display the device information.
+                const infoSpan = document.createElement('span');
+                infoSpan.id = 'info-span';
+                infoSpan.innerHTML = '';
+
+                const updateBtn = document.createElement('button');
+                updateBtn.innerHTML = 'Mettre à jour';
+                updateBtn.type = 'button';
+                updateBtn.style.display = 'none';
+
+
+                deviceDiv.appendChild(input);
+                deviceDiv.appendChild(colorInput);
+                deviceDiv.appendChild(infoIcon);
+                deviceDiv.appendChild(infoSpan);
+                deviceDiv.appendChild(updateBtn);
+                devicesDiv.appendChild(deviceDiv);
+                devicesDiv.appendChild(document.createElement('br'));
+            });
+        }
+        // Charger les paramètres et les champs des dispositifs
+        loadSettings();
+        loadDevicesFields();
+
+        const defaultAps = [
+            { name: 'AP01', mac: '24:A4:3C:D0:A0:D2', ip: '192.168.1.51' },
+            { name: 'AP02', mac: '68:72:51:44:5C:D2', ip: '192.168.1.52' },
+            { name: 'AP03', mac: '68:72:51:78:DD:B7', ip: '192.168.1.53' },
+            { name: 'AP04', mac: '68:72:51:7A:5C:1F', ip: '192.168.1.54' }
+        ];
+        const defaultPcs = [
+            { name: 'PC-Pénalités', ip: '192.168.1.101' },
+            { name: 'PC-Chrono', ip: '192.168.1.102' },
+            { name: 'PC-Secrétariat', ip: '192.168.1.103' },
+            { name: 'PC-Live', ip: '192.168.1.104' }
+
+        ];
+
+
+         // Fonction pour ajouter un champ de dispositif
+         function addDeviceFields() {
+            const devicesDiv = document.getElementById('devices');
+            if (document.querySelectorAll('.deviceName').length < 10) {
+                const deviceDiv = document.createElement('div');
+                deviceDiv.className = 'device-element';
+                deviceDiv.id = generateId();
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'device-name';
+                input.name = 'deviceName[]';
+                input.placeholder = 'Nom du dispositif';
+                //input.value = device.name || '';
+
+                const colorInput = document.createElement('input');
+                colorInput.type = 'color';
+                colorInput.defaultValue = '#FFFFFF';  // Couleur par défaut
+                colorInput.className = 'device-color';
+                colorInput.value = '#FFFFFF';
+
+
+                // Création du bouton de suppression
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Annuler';
+                deleteButton.type = 'button';
+                deleteButton.onclick = function () {
+                    devicesDiv.removeChild(deviceDiv);
+                };
+
+                deviceDiv.appendChild(colorInput);
+                deviceDiv.appendChild(input);
+                deviceDiv.appendChild(deleteButton);
+                devicesDiv.appendChild(deviceDiv);
+            }
+        }
+
+        // Fonction pour ajouter un champ AP
+        function addApField(ap = {}) {
+            const apsDiv = document.getElementById('aps');
+            const apDiv = document.createElement('div');
+            apDiv.className = 'ap-element';
+            apDiv.id = generateId(); // Assurez-vous que chaque AP a un ID unique
+
+            const nameLabel = document.createElement('label');
+            nameLabel.textContent = 'Nom de l\'AP: ';
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'ap-name';
+            nameInput.value = ap.name || '';
+
+            const ipLabel = document.createElement('label');
+            ipLabel.textContent = 'IP de l\'AP: ';
+            const ipInput = document.createElement('input');
+            ipInput.type = 'text';
+            ipInput.className = 'ap-ip';
+            ipInput.value = ap.ip || '';
+
+            const macLabel = document.createElement('label');
+            macLabel.textContent = 'MAC de l\'AP: ';
+            const macInput = document.createElement('input');
+            macInput.type = 'text';
+            macInput.className = 'ap-mac';
+            macInput.value = ap.mac || '';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Supprimer';
+            deleteButton.type = 'button';
+            deleteButton.onclick = function () {
+                if (confirm("Etes vous sur de vouloir supprimer cet AP?")) {
+                    apsDiv.removeChild(apDiv);
+                    updateLocalStorageOnRemove('aps', apDiv.id); // Mise à jour de localStorage après suppression
+                }
+            };
+
+            apDiv.appendChild(nameLabel);
+            apDiv.appendChild(nameInput);
+            apDiv.appendChild(ipLabel);
+            apDiv.appendChild(ipInput);
+            apDiv.appendChild(macLabel);
+            apDiv.appendChild(macInput);
+            apDiv.appendChild(deleteButton);
+            apsDiv.appendChild(apDiv);
+        }
+
+        function loadPcsFields() {
+            const pcsDiv = document.getElementById('pcs');
+            // Assurez-vous que le conteneur est vide avant de charger les champs
+            pcsDiv.innerHTML = '';
+
+            const pcs = JSON.parse(localStorage.getItem('pcs')) || [];
+            pcs.forEach(pc => {
+                addPcField(pc); // Cette fonction devrait maintenant ajouter les champs sans doublons
+            });
+        }
+        // Fonction pour ajouter un champ PC
+        function addPcField(pc = {}) {
+            const pcsDiv = document.getElementById('pcs');
+            const pcDiv = document.createElement('div');
+            pcDiv.className = 'pcs-element';
+            pcDiv.id = generateId(); // Assurez-vous que chaque PC a un ID unique
+
+            const nameLabel = document.createElement('label');
+            nameLabel.textContent = 'Nom du PC: ';
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.className = 'pc-name';
+            nameInput.value = pc.name || '';
+
+            const ipLabel = document.createElement('label');
+            ipLabel.textContent = 'IP: ';
+            const ipInput = document.createElement('input');
+            ipInput.type = 'text';
+            ipInput.className = 'pc-ip';
+            ipInput.value = pc.ip || '';
+
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Supprimer';
+            deleteButton.type = 'button';
+            deleteButton.onclick = function () {
+                if (confirm("Etes vous sur de vouloir supprimer ce PC?")) {
+                    pcsDiv.removeChild(pcDiv);
+                    updateLocalStorageOnRemove('pcs', pcDiv.id); // Mise à jour de localStorage après suppression
+                }
+            };
+
+            pcDiv.appendChild(nameLabel);
+            pcDiv.appendChild(nameInput);
+            pcDiv.appendChild(ipLabel);
+            pcDiv.appendChild(ipInput);
+            pcDiv.appendChild(deleteButton);
+            pcsDiv.appendChild(pcDiv);
+        }
+
+
+        window.addEventListener('load', () => {
+            loadSettings(); // Charger d'autres paramètres
+            loadDevicesFields(); // Charger les champs des dispositifs
+            loadPcsFields(); // Charger les champs PC
+            // Retirez la ligne suivante pour empêcher l'ajout de PC par défaut après le chargement des champs depuis localStorage
+            // defaultPcs.forEach(pc => addPcField(pc));
+            document.getElementById('addApButton').addEventListener('click', () => addApField());
+            document.getElementById('addPcButton').addEventListener('click', () => addPcField());
+        });
+
+
+        // Fonction pour envoyer un ping à l'AP
+        function pingAp(apName, ipAddress) {
+            // Logique pour envoyer un ping à l'AP en utilisant son adresse IP
+            console.log('Pinging ' + apName + ' at ' + ipAddress);
+    
+        }
+
+
+
+    </script>
+</body>
+
+</html>

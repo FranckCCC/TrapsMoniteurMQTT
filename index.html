@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>TRAPS MONITEUR V1.3.4</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="header">
+        <h2><img src="icones/devices.png" onclick="pingAllDevices()" alt="Rafraichir TRAPS"
+                style="vertical-align: middle;">
+            TRAPS MONITEUR V1.3.5</h2>
+        <img src="icones/settings.png" alt="Paramètres" onclick="openSettings()" class="settings-icon" />
+    </div>
+
+
+    <div class="flex-container">
+        <div class="devices">
+            <div id="mqttMessages">Chargement profils TRAPS ...</div>
+            <div id="globalMessageDiv" class="global-message-container">
+                <input type="text" id="globalMessageText" placeholder="Entrez le message global ici..."
+                    class="device-message"></textarea>
+                <button onclick="sendGlobalMessage()">Envoyer à tous</button>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="batteryChart"></canvas>
+        </div>
+        <div id="apContainer" class="ap-container"></div>
+    </div>
+    <div id="scanResults" class="device-container"></div>
+
+    <script src="js/mqtt.min.js"></script>
+    <script src="js/chart.js" defer></script>
+    <script src="js/storage.js"></script>
+    <script src="js/pings_script.js"></script>
+    <script src="js/chart_script.js"></script>
+    <script src="js/mqtt_client.js"></script>
+    <script src="js/functions_utils.js"></script>
+    
+    <script>
+
+        // Call pingAllPcs to ping immediately on load and periodically
+
+
+        window.onload = () => {
+            pingAllAps();
+            pingAllPcs();
+            pingAllDevices();
+            connectAndSubscribe();
+            getBatteryDataAndUpdateChart();
+
+        };
+
+        
+
+
+        var deviceStates = {};
+        var client; // Déclarer client comme variable globale
+       
+        // Fonction pour mettre à jour le message du dispositif
+        function updateMessage(deviceName, timestamp) {
+            let { batteryStatus, chargingStatus, online, wifi } = deviceStates[deviceName];
+            console.log (deviceStates[deviceName]);
+
+            const deviceNameStyled = `<span class="device-name">${deviceName}</span>`;
+
+            // Calculate signal strength percentage from RSSI
+            const signalStrengthPercentage = rssiToPercentage(wifi.rssi).toFixed(0);
+
+
+            // Prepare tooltip info with WiFi details and signal strength
+            let apName = deviceStates[deviceName].wifi.apName;
+            let wifiInfo = `IP: ${wifi.ip}, ${apName} (${wifi.bssid}), SSID: ${wifi.ssid}, Signal: ${signalStrengthPercentage}%`;
+
+
+            let deviceMessageDiv = document.getElementById(`msg-${deviceName}`);
+            if (!deviceMessageDiv) {
+                deviceMessageDiv = document.createElement('div');
+                deviceMessageDiv.id = `msg-${deviceName}`;
+                document.getElementById('mqttMessages').appendChild(deviceMessageDiv);
+            }
+
+            const batteryLevelIcon = getBatteryLevelIcon(deviceName, batteryStatus, chargingStatus === 'en charge');
+            const batteryPercentage = deviceStates[deviceName].batteryStatus;
+            const batteryLevelDisplay = batteryPercentage ? `<strong>${batteryPercentage}</strong>` : "Unknown";
+
+            let wifiLevel = wifi.level;
+            if (!online) {
+                wifiLevel = 0;
+            }
+            if (wifiLevel === undefined) {
+                wifiLevel = 0;
+                sendCommand(deviceName, 'wifiInfo');
+            }
+
+            // timestamp : 17:20:56 -> heure: 17h20
+            const heure = timestamp.split(':')[0];
+            const minute = timestamp.split(':')[1];
+            timestamp = `${heure}h${minute}`;
+
+            const wifiLevelIcon = `<img src="icones/signal-${wifiLevel}.png" class="icon" alt="Signal Wifi" id="wifiicon-${deviceName}" onclick="clickDeviceWifiIcon('${deviceName}')"><strong>${apName}</strong>`;
+            const offlineIcon = `<img src="icones/wi-fi-off.png" class="icon" alt="Hors ligne" id="icon-${deviceName}" onclick="clickDeviceIcon('${deviceName}')">`;
+            const inputId = `input-${deviceName}`;
+            const sendButtonId = `send-${deviceName}`;
+            const notificationInput = `<input type="text" id="${inputId}" placeholder="Entrez votre notification ici...">`;
+            const sendButton = `<button id="${sendButtonId}" onclick="sendNotification('${deviceName}')">Envoyer</button>`;
+            const divMessage = `<div class="device-message">${notificationInput} ${sendButton}</div>`;
+            const deviceDiv = document.createElement('div');
+
+            deviceDiv.className = 'device';
+            deviceMessageDiv.className = 'device-element';
+
+
+            if (online) {
+                deviceMessageDiv.innerHTML = `${batteryLevelIcon} ${wifiLevelIcon}`;
+                deviceDiv.innerHTML = `[${timestamp}] <span class="device-name">${deviceName}</span> : ${chargingStatus === 'en charge' ? 'En charge' : 'Pas en charge'} ${batteryLevelDisplay}.`;
+                deviceMessageDiv.title = wifiInfo; // Ajoute l'infobulle      
+            } else {
+                deviceMessageDiv.innerHTML = `${offlineIcon} `;
+                deviceDiv.innerHTML = `[${timestamp}] <span class="device-name-off">${deviceName}</span> : Hors ligne.`;
+            }
+            if (online) {
+                deviceDiv.innerHTML += divMessage;
+            }
+            deviceMessageDiv.appendChild(deviceDiv);
+        }
+
+        // Définissez la fonction sendNotification
+        function sendNotification(deviceName) {
+            const inputId = `input-${deviceName}`;
+            const notificationText = document.getElementById(inputId).value;
+            if (!notificationText.trim()) {
+                console.log("Le message ne peut pas être vide");
+                return;
+            }
+            const notifTopic = `notifs/${deviceName}`; // Assurez-vous que ceci est votre sujet attendu
+            if (client) {
+                client.publish(notifTopic, notificationText, { qos: 0 }, (err) => {
+                    if (err) {
+                        console.error("Erreur lors de l'envoi de la notification :", err);
+                    } else {
+                        console.log(`Notification envoyée à ${deviceName}: ${notificationText}`);
+                    }
+                });
+            } else {
+                console.log("Client MQTT n'est pas connecté.");
+            }
+        }
+
+        function updateDevice(deviceName, apkURL) {
+            const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+            client.publish(`cmd/${deviceName}`, JSON.stringify({ cmd: 'update', url: apkURL }));
+        }
+
+        const commandsResponsesTopics = {
+            "ping": "ping/",
+            "wifiInfo": "wifi/",
+            "batteryStatus": "charging/",
+            "getVersion": "version/",
+            "updateApp": "update/"
+        }
+
+
+        function sendCommandAndWaitForResponse(deviceName, command) {
+            const client = mqtt.connect(`ws://${localStorage.getItem('mqttServerAddress')}:${localStorage.getItem('mqttServerPort')}`);
+            const responseTopic = commandsResponsesTopics[command] + deviceName;
+
+
+            return new Promise((resolve, reject) => {
+                client.subscribe(responseTopic, (err) => {
+                    if (err) {
+                        reject(err);
+                    } else {
+                        client.publish(`cmd/${deviceName}`, JSON.stringify({
+                            cmd: command
+                        }));
+                    }
+                });
+
+                client.on('message', (topic, message) => {
+                    if (topic === responseTopic && !message.toString().includes('received')) {
+                        resolve(message.toString());
+                    }
+                });
+
+                setTimeout(() => {
+                    // reject('Timeout');
+                    resolve('Timeout');
+                }, 1000);
+            });
+        };
+
+        
+
+    </script>
+</body>
+
+</html>

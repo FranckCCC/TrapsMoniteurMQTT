@@ -1,0 +1,411 @@
+/* styles.css */
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    padding: 20px;
+    background-color: #f0f0f0;
+}
+
+.settings-icon {
+    cursor: pointer;
+    /* Change le curseur au survol de l'icône */
+}
+
+form {
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+
+.settings-container,
+.addition-container,
+.update-container {
+    background-color: #ffffff;
+    border: 1px solid #dcdcdc;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+    /* Espace entre les cadres */
+}
+
+/* Style pour les titres de chaque cadre */
+.settings-title,
+.addition-title,
+.update-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 15px;
+    /* Espace entre le titre et le contenu du cadre */
+}
+
+
+.flex-container {
+    display: flex;
+    justify-content: space-between;
+
+}
+
+.devices {
+    flex: 1;
+    /* Donne plus d'espace au conteneur .devices qu'aux autres éléments flexibles */
+    /* max-width: 65%; */
+    /* max-width: 65%; */
+    /* Ajoutez ou ajustez la largeur fixe si vous ne voulez pas utiliser flex-grow */
+    /* width: 35%; */
+    width: 45vw;
+    max-width: 40vw;
+    /* Ajustez selon les besoins pour augmenter la taille du conteneur .devices */
+    margin-right: 10px;
+    /* Maintient l'espace entre les conteneurs */
+    /* Ajoutez les propriétés existantes telles que padding, border, etc. */
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.chart-container {
+    flex-grow: 1;
+    /* Peut grandir pour remplir l'espace disponible, ajustez selon les besoins */
+    flex-shrink: 1;
+    /* Peut rétrécir si nécessaire */
+    flex-basis: calc(30% - 20px);
+    /* Ajustez selon les besoins pour réduire la taille de base du graphique */
+    background-color: #fff;
+    /* Couleur de fond blanc pour le graphique */
+    border: 1px solid #ccc;
+    /* Ajoute une bordure grise claire */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    /* Ajoute une ombre subtile pour la profondeur */
+    border-radius: 5px;
+    /* Coins arrondis pour le conteneur */
+    position: relative;
+    /* Position relative nécessaire si vous positionnez absolument d'autres éléments à l'intérieur */
+    margin: 0 10px;
+    max-width: 50vw;
+    /* Espacement horizontal */
+    /* Assurez-vous d'avoir une marge à droite pour les APs */
+    margin-right: 100px;
+    /* Espace pour les APs, ajustez en fonction de leur largeur */
+}
+
+.form-input {
+    flex: 1;
+    /* Permet aux éléments de s'étendre et de remplir l'espace */
+    display: flex;
+    /* Active Flexbox pour les enfants de .form-input */
+    flex-direction: column;
+    /* Place les étiquettes au-dessus des champs */
+    margin-right: 10px;
+    /* Ajoute un espace entre les champs */
+}
+
+/* Spécifique pour la dernière entrée pour éviter un espace supplémentaire à droite */
+.form-input:last-child {
+    margin-right: 0;
+}
+
+.form-input label {
+    margin-bottom: 5px;
+    /* Réduit l'espace entre les étiquettes et les champs de saisie */
+}
+
+.form-input input {
+    width: 100%;
+    /* Oblige l'input à remplir son parent .form-input */
+}
+
+/* Ajout pour la div qui contient les deux .form-input pour les serveurs */
+.server-settings {
+    display: flex;
+    /* Active Flexbox */
+    justify-content: start;
+    /* Aligner les éléments au début du conteneur */
+}
+
+/* Si vous souhaitez une taille spécifique pour vos inputs, vous pouvez ajouter ceci: */
+#serverAddress {
+    max-width: 60%;
+    /* ou la taille que vous préférez */
+}
+
+#serverPort {
+    max-width: 30%;
+    /* ou la taille que vous préférez */
+}
+
+#mqttMessages {
+    background-color: #fff;
+    /* White background */
+    padding: 20px;
+    /* Padding inside the box */
+    border-radius: 5px;
+    /* Rounded corners */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow for depth */
+    margin-top: 20px;
+    /* Space above the box */
+    margin-bottom: 10px;
+    /* Space below the box */
+}
+
+/* Additional styling to separate each device message */
+.device-message-container {
+    background-color: #fff;
+    /* White background for each device message */
+    padding: 10px;
+    /* Padding inside each message box */
+    border-radius: 5px;
+    /* Rounded corners for each message box */
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    /* Subtle shadow for each message box */
+    margin-bottom: 10px;
+    /* Space between each message box */
+
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    border: none;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+input[type=text],
+input[type=number],
+button {
+    width: auto;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+.button-group {
+    display: flex;
+    justify-content: space-between;
+}
+
+.button-group-setting {
+    margin-top: 20px;
+}
+
+label {
+    display: block;
+    margin: 10px 0 5px;
+}
+
+.device-element {
+    display: flex;
+    align-items: center;
+    /* This will vertically center the items in the div */
+    gap: 20px;
+    /* Adjust as needed to add space between the icon and the text */
+}
+
+.device-name-off {
+    font-size: 1rem;
+    /* Adjust the size as needed */
+    color: #ff0000;
+}
+
+.device-name {
+    font-weight: bold;
+    font-size: 1.15rem;
+    /* Adjust the size as needed */
+}
+
+.icon {
+    width: 50px;
+    /* Fixed width for consistency */
+    height: auto;
+    /* This ensures the aspect ratio is maintained */
+    vertical-align: middle;
+    /* This aligns the icon vertically with the text */
+}
+
+.device-message input[type="text"] {
+    margin-right: 20px;
+    /* Espace avant le bouton */
+    margin-left: 20px;
+    /* Espace avant le bouton */
+}
+
+.battery-percentage {
+    font-weight: bold;
+    /* This will make the text bold */
+}
+
+
+.device-message {
+    display: flex;
+    margin-top: 7px;
+    /* Espace avant le message */
+}
+
+.device-message button {
+    white-space: nowrap;
+    /* Prevents the button text from wrapping */
+}
+
+/* This ensures there's space between the device messages */
+.device-message+.device-message {
+    margin-top: 10px;
+}
+
+/* Style for the global message div at the bottom */
+#globalMessageDiv {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 20px;
+    /* Adds space above the global message div */
+}
+
+/* Style for the global message input */
+#globalMessageText {
+    flex-grow: 1;
+    /* Allows the input to grow and fill space */
+    margin-right: 10px;
+    /* Adds space between the input and the button */
+}
+
+
+.device-input-div {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    vertical-align: middle;
+    /* gap: 10px; */
+}
+
+.form-group {
+    /* margin-bottom: 20px; */
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.form-input {
+    width: 100%;
+    /* padding: 10px; */
+    /* border-radius: 5px;
+    border: 1px solid #ccc; */
+}
+
+.form-input input[type="text"] {
+    width: 20vh;
+}
+
+.ap-element {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.ap-element label {
+    margin-right: 10px;
+    margin-bottom: 20px;
+
+}
+
+.ap-element input {
+    margin-right: 10px;
+}
+
+.ap-container {
+    /* ... styles existants ... */
+    /* Assurez-vous que les APs ne dépassent pas le graphique */
+    margin-left: auto;
+    /* Pour aligner les APs à droite */
+    margin-right: 10px;
+    
+    max-width: 5vw;
+    /* Espace entre les APs et le bord droit du viewport ou du parent */
+}
+
+
+.ap-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    /* Suppression du fond blanc et de l'ombre portée */
+    /* background-color: #fff; */
+    /* box-shadow: 0 0 20px rgba(0, 0, 0, 0.1); */
+    padding: 10px;
+    /* Suppression des bordures arrondies */
+    /* border-radius: 5px; */
+    width: 10%;
+    margin-bottom: 20px;
+}
+
+.pcs-element {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pcs-element input {
+    margin-right: 10px;
+}
+
+.pcs-element label {
+    margin-right: 10px;
+    margin-bottom: 20px;
+
+}
+
+.pc-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-top: 10px;
+}
+
+.pc-status {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    /* Centre le texte sous l'icône */
+    background-color: #fff;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 10%;
+    /* Ajustez la largeur pour deux PCs par ligne */
+    margin-bottom: 20px;
+}
+
+
+.pc-name {
+    text-align: center;
+    /* Centre le texte sous l'icône */
+    margin-top: 5px;
+    /* Espacement entre l'icône et le texte */
+    font-weight: bold;
+    /* Texte en gras */
+}
+
+.pc-ip {
+    text-align: center;
+    /* Centre le texte sous l'icône */
+    margin-top: 5px;
+    /* Espacement entre l'icône et le texte */
+}
